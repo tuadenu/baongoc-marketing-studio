@@ -1,0 +1,22 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local app data
+data/
+outputs/
+exports/
+
+# Generated media
+*.mp4
+*.mov
+*.m4a
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.db
+*.sqlite

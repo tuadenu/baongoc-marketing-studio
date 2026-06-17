@@ -1,0 +1,20 @@
+vertex:
+  project_ids:
+    - hsk-master-dc53b
+    - meothihsk-ai
+  regions:
+    - us-central1
+  imagen_model: TODO_CONFIGURE_IMAGEN_MODEL
+  veo_model: TODO_CONFIGURE_VEO_MODEL
+
+storage:
+  base_dir: .
+  db_path: data/app.db
+
+cost_guard:
+  daily_limit_vnd: 200000
+
+video:
+  default_duration_seconds: 8
+  intro_text: "Mẹo Thi HSK"
+  outro_text: "Tải app Mẹo Thi HSK"
