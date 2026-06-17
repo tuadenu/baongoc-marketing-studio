@@ -20,3 +20,4 @@ exports/
 *.webp
 *.db
 *.sqlite
+config.yaml
