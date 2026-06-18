@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def ensure_app_dirs() -> None:
-    for rel in ["data", "outputs/images", "outputs/videos", "exports/final"]:
+    for rel in ["data", "outputs/images", "outputs/videos", "outputs/qr", "exports/final", "exports/qr_images", "exports/qr_videos"]:
         (ROOT / rel).mkdir(parents=True, exist_ok=True)
 
 

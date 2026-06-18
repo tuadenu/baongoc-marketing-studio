@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import shutil
 from dataclasses import dataclass
 
 import streamlit as st
@@ -32,11 +34,32 @@ def load_profiles(config: dict) -> list[GCloudProfile]:
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, check=False, capture_output=True, text=True)
+    resolved = _resolve_binary(cmd[0])
+    if resolved is None:
+        raise FileNotFoundError(cmd[0])
+    return subprocess.run([resolved, *cmd[1:]], check=False, capture_output=True, text=True)
+
+
+def _resolve_binary(name: str) -> str | None:
+    if name == "gcloud":
+        env_bin = os.environ.get("GCLOUD_BIN")
+        if env_bin and os.path.exists(env_bin) and os.access(env_bin, os.X_OK):
+            return env_bin
+    found = shutil.which(name)
+    if found:
+        return found
+    if name == "gcloud":
+        for candidate in ("/usr/local/bin/gcloud", "/opt/homebrew/bin/gcloud", "/usr/bin/gcloud"):
+            if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+    return None
 
 
 def get_active_gcloud_account() -> str | None:
-    result = _run(["gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)"])
+    try:
+        result = _run(["gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)"])
+    except FileNotFoundError:
+        return None
     if result.returncode != 0:
         return None
     out = (result.stdout or "").strip().splitlines()
@@ -44,7 +67,10 @@ def get_active_gcloud_account() -> str | None:
 
 
 def get_active_gcloud_project() -> str | None:
-    result = _run(["gcloud", "config", "get-value", "project"])
+    try:
+        result = _run(["gcloud", "config", "get-value", "project"])
+    except FileNotFoundError:
+        return None
     if result.returncode != 0:
         return None
     value = (result.stdout or "").strip()
@@ -63,7 +89,10 @@ def get_adc_quota_project() -> str | None:
 
 
 def _set_gcloud_value(args: list[str]) -> tuple[bool, str]:
-    result = _run(args)
+    try:
+        result = _run(args)
+    except FileNotFoundError:
+        return False, "Không tìm thấy lệnh 'gcloud'. Hãy cài Google Cloud SDK và thêm vào PATH."
     if result.returncode == 0:
         return True, (result.stdout or "").strip()
     return False, (result.stderr or result.stdout or "Lỗi không xác định").strip()
@@ -91,7 +120,10 @@ def login_profile(profile: GCloudProfile) -> tuple[bool, str]:
     ]
     messages = []
     for cmd in steps:
-        result = _run(cmd)
+        try:
+            result = _run(cmd)
+        except FileNotFoundError:
+            return False, "Không tìm thấy lệnh 'gcloud'. Hãy cài Google Cloud SDK và thêm vào PATH."
         messages.append((result.stdout or result.stderr or "").strip())
         if result.returncode != 0:
             return False, "\n".join(messages)
@@ -126,6 +158,11 @@ def render_gcloud_profile_sidebar(config: dict) -> None:
         st.warning(
             "Profile đã chọn chưa khớp với gcloud hiện tại hoặc ADC có thể chưa hợp lệ.\n"
             "Bạn có thể bấm Đăng nhập tài khoản này để mở trình duyệt đăng nhập."
+        )
+    if _resolve_binary("gcloud") is None:
+        st.info(
+            "Không tìm thấy lệnh `gcloud` trong PATH. App vẫn chạy được, nhưng phần chuyển profile sẽ chỉ hiển thị hướng dẫn.\n"
+            "Hãy cài Google Cloud SDK hoặc mở app từ Terminal đã có `gcloud`."
         )
 
     confirmed = st.checkbox(

@@ -217,6 +217,64 @@ class VertexClient:
                 self._save_response_bytes(candidate, out_path)
         return str(out_path)
 
+    def generate_image_from_reference(
+        self,
+        prompt: str,
+        model: str,
+        aspect_ratio: str,
+        reference_image_path: str,
+        output_dir: str,
+        negative_prompt: str | None = None,
+        keep_face: bool = True,
+        num_images: int = 1,
+    ) -> list[str]:
+        client = self._genai_client()
+        out_dir = self._ensure_dir(output_dir)
+        from google.genai import types
+
+        image_bytes, mime_type = self._load_image_bytes(reference_image_path)
+        ref_image = types.Image(imageBytes=image_bytes, mimeType=mime_type)
+        reference = types.SubjectReferenceImage(
+            referenceImage=ref_image,
+            config=types.SubjectReferenceConfig(
+                subjectType=types.SubjectReferenceType.SUBJECT_TYPE_PERSON,
+                subjectDescription="Giữ gương mặt, tóc, dáng người và phong cách nhân vật gần nhất có thể so với ảnh gốc.",
+            ),
+        )
+        edit_config = types.EditImageConfig(
+            aspectRatio=aspect_ratio,
+            negativePrompt=negative_prompt,
+            numberOfImages=num_images,
+            editMode=types.EditMode.EDIT_MODE_CONTROLLED_EDITING,
+        )
+
+        try:
+            response = client.models.edit_image(
+                model=model,
+                prompt=prompt,
+                reference_images=[reference],
+                config=edit_config,
+            )
+        except Exception as exc:
+            raise RuntimeError("Model hiện tại chưa hỗ trợ sửa ảnh từ ảnh gốc. Vui lòng dùng model image editing thật.") from exc
+        candidate = self._first_item(response, ["generatedImages", "generated_images", "images"])
+        if candidate is None:
+            raise RuntimeError(f"Vertex AI không trả về ảnh. Response type: {type(response)!r}")
+        image_obj = getattr(candidate, "image", candidate)
+        out_path = out_dir / f"image_{len(list(out_dir.glob('*.png'))) + 1}.png"
+        if hasattr(image_obj, "save"):
+            image_obj.save(str(out_path))
+        else:
+            uri = self._extract_uri(image_obj)
+            if uri:
+                self._save_response_bytes(uri, out_path)
+            else:
+                self._save_response_bytes(image_obj, out_path)
+        print(
+            f"project={self.project_id} region={self.region} model={model} aspect_ratio={aspect_ratio} output_path={out_path}"
+        )
+        return [str(out_path)]
+
     def generate_video(
         self,
         prompt: str,
@@ -225,6 +283,7 @@ class VertexClient:
         duration_seconds: int,
         output_dir: str,
         reference_image_path: str | None = None,
+        generate_audio: bool = True,
     ) -> str:
         return self.generate_video_with_reference(
             prompt=prompt,
@@ -233,6 +292,7 @@ class VertexClient:
             duration_seconds=duration_seconds,
             output_dir=output_dir,
             reference_image_path=reference_image_path,
+            generate_audio=generate_audio,
         )
 
     def generate_video_with_reference(
@@ -243,6 +303,7 @@ class VertexClient:
         duration_seconds: int,
         output_dir: str,
         reference_image_path: str | None = None,
+        generate_audio: bool = True,
     ) -> str:
         client = self._genai_client()
         out_dir = self._ensure_dir(output_dir)
@@ -258,19 +319,19 @@ class VertexClient:
         if ref_image is not None:
             config_candidates.extend(
                 [
-                    {"aspectRatio": aspect_ratio, "numberOfVideos": 1, "lastFrame": ref_image},
-                    {"aspectRatio": aspect_ratio, "lastFrame": ref_image},
-                    {"referenceImages": [{"image": ref_image}], "aspectRatio": aspect_ratio},
-                    {"aspectRatio": aspect_ratio},
+                    {"aspectRatio": aspect_ratio, "numberOfVideos": 1, "lastFrame": ref_image, "generateAudio": generate_audio},
+                    {"aspectRatio": aspect_ratio, "lastFrame": ref_image, "generateAudio": generate_audio},
+                    {"referenceImages": [{"image": ref_image}], "aspectRatio": aspect_ratio, "generateAudio": generate_audio},
+                    {"aspectRatio": aspect_ratio, "generateAudio": generate_audio},
                     {},
                 ]
             )
         else:
             config_candidates.extend(
                 [
-                    {"aspectRatio": aspect_ratio, "numberOfVideos": 1},
-                    {"aspectRatio": aspect_ratio, "numberOfResults": 1},
-                    {"aspectRatio": aspect_ratio},
+                    {"aspectRatio": aspect_ratio, "numberOfVideos": 1, "generateAudio": generate_audio},
+                    {"aspectRatio": aspect_ratio, "numberOfResults": 1, "generateAudio": generate_audio},
+                    {"aspectRatio": aspect_ratio, "generateAudio": generate_audio},
                     {},
                 ]
             )

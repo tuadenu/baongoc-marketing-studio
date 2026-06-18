@@ -71,6 +71,20 @@ Tính năng này chỉ đổi account/project/quota project đang active, không
 - Video kết quả được lưu trong `outputs/videos/image_to_video/`.
 - Khi cần kiểm tra lại luồng, bạn vẫn có thể dùng `scripts/test_vertex_image.py` và `scripts/test_vertex_video.py` như trước.
 
+## Tạo video dài
+
+- Tab `🎬 Tạo video dài` tự chia nội dung thành nhiều scene 8 giây, gọi Veo cho từng scene rồi ghép lại bằng ffmpeg.
+- Có thể nhập một prompt tổng hoặc nhiều prompt, mỗi dòng là một scene.
+- Có thể chọn nhân vật mặc định hoặc nhân vật trong Character Library.
+- Output được lưu trong `outputs/long_videos/YYYYMMDD/<campaign_slug>/`.
+- File quan trọng:
+  - `storyboard.json`
+  - `scene_01_prompt.txt`, `scene_02_prompt.txt`, ...
+  - `scene_01.mp4`, `scene_02.mp4`, ...
+  - `final_long_video.mp4`
+  - `final_subtitles.srt` nếu bật tạo phụ đề
+- Video dài luôn tiêu tốn credit theo số scene 8 giây, nên hãy kiểm tra số cảnh và chi phí ước tính trước khi chạy.
+
 ## Biên tập video
 
 - Tab `Biên tập video` cho phép chọn nhiều video từ `outputs/videos/`, `outputs/videos/test/`, `outputs/videos/image_to_video/` hoặc upload từ máy.
@@ -123,9 +137,28 @@ Tạo file `.vscode/settings.json` ở thư mục cha với nội dung:
 }
 ```
 
+## QR / CTA
+
+- Tab `QR / CTA` cho phép tạo QR từ link, số điện thoại, Zalo hoặc nội dung tùy chỉnh.
+- Có thể chèn QR vào ảnh, chèn QR vào video, hoặc thêm màn hình QR cuối video.
+- QR/CTA là xử lý local bằng `Pillow`, `qrcode` và `ffmpeg`, không tốn Vertex credit.
+- Ảnh xuất có QR được lưu vào `exports/qr_images/YYYYMMDD/`.
+- Video xuất có QR được lưu vào `exports/qr_videos/YYYYMMDD/`.
+- QR tạo mới được lưu vào `outputs/qr/YYYYMMDD/`.
+
 ## Ghi chú
 
 - Model name Vertex được cấu hình trong `config.yaml`.
 - App ưu tiên `google.auth.default()` và chỉ dùng API key khi cần.
 - Không hard-code secret.
 - Không tự động generate khi mở app.
+
+## Tạo ảnh
+
+- Tab `Tạo ảnh` có 2 chế độ:
+  - `Tạo từ prompt`
+  - `Tạo từ ảnh tham chiếu`
+- Chế độ `Tạo từ prompt` giữ nguyên luồng cũ bằng Imagen/Vertex AI.
+- Chế độ `Tạo từ ảnh tham chiếu` cho phép upload ảnh từ máy, chọn từ `outputs/images`, hoặc chọn ảnh từ Character Library.
+- Ảnh tạo xong được lưu vào `outputs/images/` hoặc `outputs/images/edit/YYYYMMDD/`.
+- Nếu SDK/Vertex chưa hỗ trợ image editing thật, app sẽ fallback an toàn và sẽ báo rõ rằng kết quả có thể không giữ mặt 100%.
