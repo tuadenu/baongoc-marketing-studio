@@ -7,6 +7,7 @@ import streamlit as st
 
 from .characters import get_selected_character, list_characters
 from .database import get_ui_state, log_request, log_usage_cost, save_prompt, save_ui_state, update_request_status
+from .qr_tools import apply_qr_cta_pipeline, render_pre_generate_qr_controls
 from .utils import root_path
 from .video_generator import _concat_videos, _make_freeze_clip, _open_folder, _save_uploaded_image, _video_output_dir
 from .vertex_client import VertexClient
@@ -64,8 +65,18 @@ def _clear_freeze_state(prefix: str) -> None:
         st.session_state.pop(key, None)
 
 
+def _open_folder_from_state(state_key: str) -> None:
+    path = st.session_state.get(state_key)
+    if path:
+        _open_folder(path)
+
+
 def render_image_to_video_tab(config: dict, default_campaign_id: int) -> None:
     st.subheader("Tạo video từ ảnh")
+    last_output_path = st.session_state.get("last_image_to_video_output_path")
+    if last_output_path and Path(last_output_path).exists():
+        st.video(last_output_path)
+        st.code(last_output_path)
     selected_character = get_selected_character()
     selected_image_path = _choose_image_source()
 
@@ -187,6 +198,12 @@ def render_image_to_video_tab(config: dict, default_campaign_id: int) -> None:
     st.info(f"Tổng thời lượng dự kiến cuối: {projected_total}s")
     if pending.get("freeze_image_paths"):
         st.caption("Ảnh sẽ được ghép theo thứ tự bạn chọn.")
+    qr_options = render_pre_generate_qr_controls(
+        config=config,
+        state_prefix="image_to_video_generate",
+        media_kind="video",
+        allow_end_screen=True,
+    )
 
     if not use_credit:
         st.warning("Vui lòng xác nhận trước khi tạo.")
@@ -284,6 +301,14 @@ def render_image_to_video_tab(config: dict, default_campaign_id: int) -> None:
                     final_output = output_dir / f"extended_{datetime.now().strftime('%H%M%S')}.mp4"
                     _concat_videos(extended_parts, str(final_output))
                     output_path = final_output
+            output_path = Path(
+                apply_qr_cta_pipeline(
+                    source_path=str(output_path),
+                    config=config,
+                    campaign_id=pending["campaign_id"],
+                    options=qr_options,
+                )
+            )
             progress.progress(92, text="Đang lưu video về máy")
             update_request_status(request_id, "completed", output_path=str(output_path), detail="Vertex AI image-to-video")
             progress.progress(100, text="Hoàn thành")
@@ -291,8 +316,9 @@ def render_image_to_video_tab(config: dict, default_campaign_id: int) -> None:
             st.video(str(output_path))
             st.caption(str(output_path))
             st.caption(prompt)
+            st.session_state["last_image_to_video_output_path"] = str(output_path)
             if st.button("Mở thư mục video", key="open_image_to_video_folder"):
-                _open_folder(str(output_path))
+                _open_folder_from_state("last_image_to_video_output_path")
             return
         except Exception as exc:
             update_request_status(request_id, "failed", detail=str(exc))

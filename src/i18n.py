@@ -14,6 +14,8 @@ TEXT = {
     "tab_subtitles": "Phụ đề",
     "tab_characters": "Nhân vật",
     "tab_image_to_video": "Tạo video từ ảnh",
+    "tab_long_video": "Tạo video dài",
+    "tab_qr_cta": "QR / CTA",
     "tab_presets": "Mẫu prompt",
     "campaign_manager": "Quản lý chiến dịch",
     "campaign_name": "Tên chiến dịch",

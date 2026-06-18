@@ -5,10 +5,13 @@ from src.characters import render_characters_tab
 from src.cost_guard import summarize_usage
 from src.database import init_db, list_campaigns, list_prompts, list_recent_requests, create_campaign
 from src.gcloud_profiles import render_gcloud_profile_sidebar
+from src.model_checker import render_model_checker_tab
 from src.subtitle_tools import render_subtitle_tab
 from src.video_editor import render_editor_tab
 from src.image_generator import render_image_tab
 from src.image_to_video import render_image_to_video_tab
+from src.long_video_generator import render_long_video_tab
+from src.qr_tools import render_qr_cta_tab
 from src.i18n import t, status_label
 from src.prompt_presets import DISPLAY_NAMES_VI, PRESETS
 from src.utils import ensure_app_dirs, load_config
@@ -70,7 +73,10 @@ def main() -> None:
             t("tab_subtitles"),
             t("tab_characters"),
             t("tab_image_to_video"),
+            t("tab_long_video"),
+            t("tab_qr_cta"),
             t("tab_presets"),
+            "Kiểm tra model Vertex/Gemini",
         ]
     )
 
@@ -131,7 +137,7 @@ def main() -> None:
         render_video_tab(default_campaign_id, config)
 
     with tabs[3]:
-        render_editor_tab()
+        render_editor_tab(config, default_campaign_id)
 
     with tabs[4]:
         render_subtitle_tab()
@@ -143,11 +149,20 @@ def main() -> None:
         render_image_to_video_tab(config, default_campaign_id)
 
     with tabs[7]:
+        render_long_video_tab(default_campaign_id, config)
+
+    with tabs[8]:
+        render_qr_cta_tab(config, default_campaign_id)
+
+    with tabs[9]:
         st.subheader(t("preset_prompts"))
         for name, prompt in PRESETS.items():
             label = DISPLAY_NAMES_VI.get(name, name)
             st.write(f"**{label}**")
             st.code(prompt)
+
+    with tabs[10]:
+        render_model_checker_tab(config)
 
 if __name__ == "__main__":
     main()

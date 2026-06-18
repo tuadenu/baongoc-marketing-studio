@@ -9,6 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from .qr_tools import render_qr_postprocess_controls
 from .i18n import t
 from .utils import root_path
 
@@ -73,6 +74,19 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
+def _open_folder(path: str) -> None:
+    try:
+        subprocess.run(["open", str(Path(path).parent)], check=False)
+    except Exception:
+        pass
+
+
+def _open_folder_from_state(state_key: str) -> None:
+    path = st.session_state.get(state_key)
+    if path:
+        _open_folder(path)
+
+
 def _scale_crop_filter(preset: str, mode: str) -> str:
     size = PRESET_EXPORTS[preset]["size"]
     w, h = size.split("x")
@@ -101,8 +115,12 @@ def _write_text_overlay_srt(text: str, path: Path, duration: float) -> None:
     path.write_text("\n".join(blocks), encoding="utf-8")
 
 
-def render_editor_tab() -> None:
+def render_editor_tab(config: dict, default_campaign_id: int) -> None:
     st.subheader(t("tab_editor"))
+    last_export = st.session_state.get("last_export_output_path")
+    if last_export and Path(last_export).exists():
+        st.video(last_export)
+        st.code(last_export)
     if not ffmpeg_available():
         st.warning("Chưa tìm thấy ffmpeg. Hãy cài bằng: brew install ffmpeg")
 
@@ -220,5 +238,14 @@ def render_editor_tab() -> None:
         status.success("Hoàn thành")
         st.success(f"{t('saved_to')}: {output_path}")
         st.video(str(output_path))
+        st.session_state["last_export_output_path"] = str(output_path)
+        render_qr_postprocess_controls(
+            source_path=str(output_path),
+            config=config,
+            media_kind="video",
+            campaign_id=default_campaign_id,
+            state_prefix="editor_after",
+            allow_end_screen=True,
+        )
         if st.button("Mở thư mục export"):
-            subprocess.run(["open", str(output_path.parent)], check=False)
+            _open_folder_from_state("last_export_output_path")

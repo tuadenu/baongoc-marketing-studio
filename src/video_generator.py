@@ -9,6 +9,7 @@ import streamlit as st
 from .database import get_ui_state, log_request, log_usage_cost, save_prompt, save_ui_state, update_prompt_status, update_request_status
 from .i18n import t
 from .prompt_presets import PRESETS
+from .qr_tools import apply_qr_cta_pipeline, render_pre_generate_qr_controls
 from .utils import root_path
 from .vertex_client import VertexClient
 
@@ -39,6 +40,12 @@ def _open_folder(path: str) -> None:
         subprocess.run(["open", str(Path(path).parent)], check=False)
     except Exception:
         pass
+
+
+def _open_folder_from_state(state_key: str) -> None:
+    path = st.session_state.get(state_key)
+    if path:
+        _open_folder(path)
 
 
 def _save_uploaded_image(uploaded_file) -> str:
@@ -119,6 +126,10 @@ def _concat_videos(video_paths: list[str], output_path: str) -> str:
 
 def render_video_tab(default_campaign_id: int, config: dict) -> None:
     st.subheader(t("video_generator"))
+    last_output_path = st.session_state.get("last_video_output_path")
+    if last_output_path and Path(last_output_path).exists():
+        st.video(last_output_path)
+        st.code(last_output_path)
     last_prompt = get_ui_state("video_prompt", PRESETS["TikTok Hook"]) or PRESETS["TikTok Hook"]
     last_model = get_ui_state("video_model_label", "Veo 3.1 Lite") or "Veo 3.1 Lite"
     last_duration = int(get_ui_state("video_duration", "8") or 8)
@@ -256,6 +267,12 @@ def render_video_tab(default_campaign_id: int, config: dict) -> None:
                 st.write(f"- Ảnh {idx}: `{Path(image_path).name}` - `{seconds}s`")
             st.write(f"**Tổng ảnh nối đuôi:** `{total_freeze_seconds}s`")
             st.write(f"**Tổng video cuối dự kiến:** `{projected_total}s`")
+    qr_options = render_pre_generate_qr_controls(
+        config=config,
+        state_prefix="video_generate",
+        media_kind="video",
+        allow_end_screen=True,
+    )
     confirm = st.checkbox(t("confirm_video"), key="confirm_video_generate")
     if confirm and st.button("Tạo video", key="run_video_now"):
         progress = st.progress(0, text="Đang chuẩn bị")
@@ -347,6 +364,12 @@ def render_video_tab(default_campaign_id: int, config: dict) -> None:
                     final_output = output_dir / f"extended_{datetime.now().strftime('%H%M%S')}.mp4"
                     _concat_videos(extended_parts, str(final_output))
                     output_path = str(final_output)
+            output_path = apply_qr_cta_pipeline(
+                source_path=output_path,
+                config=config,
+                campaign_id=pending["campaign_id"],
+                options=qr_options,
+            )
             progress.progress(100, text="Hoàn thành")
             update_prompt_status(prompt_id, "completed", output_path)
             update_request_status(request_id, "completed", output_path=output_path)
@@ -354,8 +377,9 @@ def render_video_tab(default_campaign_id: int, config: dict) -> None:
             st.caption(f"{t('saved_to')}: {output_path}")
             st.video(output_path)
             st.code(output_path)
+            st.session_state["last_video_output_path"] = output_path
             if st.button("Mở thư mục video", key="open_video_folder"):
-                _open_folder(output_path)
+                _open_folder_from_state("last_video_output_path")
         except Exception as exc:
             update_prompt_status(prompt_id, "failed")
             update_request_status(request_id, "failed", detail=str(exc))
